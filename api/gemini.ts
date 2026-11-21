@@ -2,7 +2,7 @@
   runtime: 'edge',
 };
 
-const MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 
 export default async function handler(req: Request) {
   if (req.method !== 'POST') {
@@ -48,7 +48,7 @@ export default async function handler(req: Request) {
 
     for (const model of MODELS) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
+      const timer = setTimeout(() => controller.abort(), 9000);
 
       try {
         const response = await fetch(
@@ -62,7 +62,6 @@ export default async function handler(req: Request) {
               generationConfig: {
                 responseMimeType: 'application/json',
                 maxOutputTokens: 1200,
-                ...(model.startsWith('gemini-3') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
               },
             }),
           }
@@ -96,7 +95,7 @@ export default async function handler(req: Request) {
         );
       } catch (e: any) {
         clearTimeout(timer);
-        lastErr = e.name === 'AbortError' ? `${model}: 8秒タイムアウト` : e.message;
+        lastErr = e.name === 'AbortError' ? `${model}: 9秒タイムアウト` : e.message;
       }
     }
 
