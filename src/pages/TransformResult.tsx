@@ -1,18 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Save,
-  Sparkles,
-  Clock,
-  Users,
-  RefreshCw,
-  Loader2,
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
-  ArrowRight,
-  Info,
-} from 'lucide-react';
+﻿import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { Save, Sparkles, Clock, Users, RefreshCw, Loader2, AlertCircle, AlertTriangle, CheckCircle2, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 import { saveRecipe } from '../utils/storage';
 import { transformRecipeWithGemini } from '../utils/gemini';
 import type { Recipe, Ingredient } from '../types/recipe';
@@ -52,9 +40,7 @@ export const TransformResult = () => {
 
   useEffect(() => {
     if (!loading) return;
-    const timer = setInterval(() => {
-      setLoadingMsgIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
-    }, 2200);
+    const timer = setInterval(() => setLoadingMsgIndex((prev) => (prev + 1) % LOADING_MESSAGES.length), 2200);
     return () => clearInterval(timer);
   }, [loading]);
 
@@ -62,13 +48,7 @@ export const TransformResult = () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await transformRecipeWithGemini({
-        inputType,
-        recipeText,
-        imagePreview,
-        selectedIngredients,
-        preferences,
-      });
+      const result = await transformRecipeWithGemini({ inputType, recipeText, imagePreview, selectedIngredients, preferences });
       setTitle(result.title);
       setDescription(result.description);
       setServings(result.servings);
@@ -94,9 +74,7 @@ export const TransformResult = () => {
   }, []);
 
   const handleIngredientChange = (id: string, field: keyof Ingredient, value: string) => {
-    setIngredients((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
-    );
+    setIngredients((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
   const handleStepChange = (index: number, value: string) => {
@@ -106,16 +84,7 @@ export const TransformResult = () => {
   const handleSave = () => {
     const newRecipe: Recipe = {
       id: Date.now().toString(),
-      title,
-      description,
-      servings,
-      cookingTime,
-      reproducibility,
-      reproducibilityNote,
-      nutritionEstimate,
-      failurePoints,
-      ingredients,
-      steps,
+      title, description, servings, cookingTime, reproducibility, reproducibilityNote, nutritionEstimate, failurePoints, ingredients, steps,
       createdAt: new Date().toLocaleDateString('ja-JP'),
     };
     saveRecipe(newRecipe);
@@ -124,303 +93,147 @@ export const TransformResult = () => {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '600px', margin: '80px auto', textAlign: 'center', padding: '20px' }}>
-        <Loader2 size={48} color="#10b981" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 20px' }} />
-        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-        <h3 style={{ marginBottom: '8px' }}>おいしくなるように調整中...</h3>
-        <p style={{ color: '#a7f3d0', fontSize: '15px', fontWeight: 'bold' }}>
-          {LOADING_MESSAGES[loadingMsgIndex]}
-        </p>
-      </div>
+      <main className="page-shell" style={{ padding: '80px 0', textAlign: 'center' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '44px 28px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '8px' }}>
+          <Loader2 size={40} color="var(--sage-dark)" style={{ animation: 'spin 1.1s linear infinite', margin: '0 auto 20px', display: 'block' }} />
+          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+          <div className="eyebrow" style={{ marginBottom: '8px' }}>CRAFTING YOUR RECIPE</div>
+          <h2 style={{ fontFamily: 'var(--serif-en)', fontStyle: 'italic', fontSize: '28px', fontWeight: 600, color: 'var(--ink)', marginBottom: '12px' }}>Tailoring every detail...</h2>
+          <p style={{ color: 'var(--sage-dark)', fontSize: '14px', fontWeight: 600, margin: 0 }}>{LOADING_MESSAGES[loadingMsgIndex]}</p>
+        </div>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <div style={{ maxWidth: '600px', margin: '40px auto', padding: '24px', backgroundColor: '#2a1515', border: '1px solid #ef4444', borderRadius: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171', marginBottom: '12px' }}>
-          <AlertCircle size={24} />
-          <h3 style={{ margin: 0 }}>レシピを再構築できませんでした</h3>
+      <main className="page-shell" style={{ padding: '48px 0' }}>
+        <div style={{ maxWidth: '560px', margin: '0 auto', padding: '28px', backgroundColor: 'var(--card-bg)', border: '1.5px solid var(--terracotta)', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--terracotta)', marginBottom: '12px' }}>
+            <AlertCircle size={22} /><h3 style={{ margin: 0, fontSize: '17px' }}>レシピを再構築できませんでした</h3>
+          </div>
+          <p style={{ fontSize: '14px', color: 'var(--ink)', lineHeight: 1.7, marginBottom: '20px' }}>{error}</p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button onClick={generateRecipe} className="primary-link" style={{ border: 'none', cursor: 'pointer' }}><RefreshCw size={16} /><span>もう一度試す</span></button>
+            <Link to="/input" className="secondary-link"><ArrowLeft size={16} /><span>入力画面へ戻る</span></Link>
+          </div>
         </div>
-        <p style={{ fontSize: '14px', color: '#fca5a5', lineHeight: '1.6' }}>{error}</p>
-        <button
-          onClick={generateRecipe}
-          style={{
-            marginTop: '16px',
-            padding: '10px 20px',
-            backgroundColor: '#ef4444',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
-          Try another version（再試行する）
-        </button>
-      </div>
+      </main>
     );
   }
 
   const substitutedList = ingredients.filter((i) => i.isSubstituted);
 
   return (
-    <div style={{ maxWidth: '720px', margin: '0 auto', padding: '20px' }}>
-      {/* ヘッダー */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981' }}>
-          <Sparkles size={20} />
-          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Your recipe is ready!（自由に編集・微調整できます）</span>
-        </div>
-        <button
-          onClick={generateRecipe}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#222',
-            color: '#fff',
-            border: '1px solid #444',
-            borderRadius: '6px',
-            fontSize: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
-          <RefreshCw size={12} /> Try another version
+    <main className="page-shell" style={{ maxWidth: '800px', padding: '36px 0 80px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
+        <Link to="/input" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--muted)', textDecoration: 'none' }}>
+          <ArrowLeft size={15} /> 条件を変えてやり直す
+        </Link>
+        <button onClick={generateRecipe} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '40px', padding: '0 16px', backgroundColor: 'var(--card-bg)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>
+          <RefreshCw size={14} /> 別パターンを提案
         </button>
       </div>
 
-      {/* 料理名 */}
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        style={{
-          width: '100%',
-          fontSize: '22px',
-          fontWeight: 'bold',
-          padding: '12px',
-          backgroundColor: '#222',
-          color: '#fff',
-          border: '1px solid #444',
-          borderRadius: '8px',
-          marginBottom: '12px',
-        }}
-      />
-
-      {/* 再現性の見込みバッジ＆解説 */}
-      <div
-        style={{
-          padding: '14px',
-          backgroundColor: '#1e293b',
-          border: '1px solid #334155',
-          borderRadius: '10px',
-          marginBottom: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              backgroundColor: reproducibility === '高' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-              color: reproducibility === '高' ? '#34d399' : '#fbbf24',
-              border: `1px solid ${reproducibility === '高' ? '#10b981' : '#f59e0b'}`,
-            }}
-          >
-            <CheckCircle2 size={14} /> 再現性の見込み：{reproducibility}
-          </span>
-          <span style={{ fontSize: '11px', color: '#94a3b8' }}>※AIによる仕上がり推定</span>
+      <header style={{ marginBottom: '28px', borderBottom: '1px solid var(--line)', paddingBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <Sparkles size={15} color="var(--terracotta)" /><span className="eyebrow">YOUR TAILORED RECIPE</span>
         </div>
-        <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#e2e8f0', lineHeight: '1.5' }}>
-          {reproducibilityNote || description}
-        </p>
+        <div style={{ fontFamily: 'var(--serif-en)', fontStyle: 'italic', fontSize: 'clamp(28px, 3.6vw, 38px)', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.15, marginBottom: '14px' }}>
+          Made for your taste.
+        </div>
+        <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>レシピタイトル（タップして自由に編集できます）</label>
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: '100%', fontFamily: 'var(--display-jp)', fontSize: 'clamp(20px, 2.5vw, 24px)', fontWeight: 600, padding: '12px 16px', backgroundColor: 'var(--card-bg)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', marginBottom: '16px' }} />
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', fontSize: '13px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '6px' }}>
+            <Users size={15} color="var(--sage-dark)" />
+            <input type="number" min={1} value={servings} onChange={(e) => setServings(Number(e.target.value))} style={{ width: '44px', border: 'none', borderBottom: '1px solid var(--sand)', backgroundColor: 'transparent', textAlign: 'center', fontWeight: 600, color: 'var(--ink)' }} />
+            <span>人分</span>
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '6px' }}>
+            <Clock size={15} color="var(--sage-dark)" /><span>約</span>
+            <input type="number" min={1} value={cookingTime} onChange={(e) => setCookingTime(Number(e.target.value))} style={{ width: '50px', border: 'none', borderBottom: '1px solid var(--sand)', backgroundColor: 'transparent', textAlign: 'center', fontWeight: 600, color: 'var(--ink)' }} />
+            <span>分</span>
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, backgroundColor: reproducibility === '高' ? 'var(--sage-pale)' : 'rgba(217, 185, 155, 0.3)', color: reproducibility === '高' ? 'var(--sage-dark)' : '#8a5338', border: `1px solid ${reproducibility === '高' ? 'var(--sage)' : 'var(--sand)'}` }}>
+            <CheckCircle2 size={14} /><span>再現性の目安：{reproducibility}</span>
+          </div>
+        </div>
+      </header>
+
+      <section style={{ padding: '22px 24px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderLeft: '4px solid var(--sage-dark)', borderRadius: '6px', marginBottom: '32px' }}>
+        <div className="eyebrow" style={{ marginBottom: '6px', color: 'var(--sage-dark)' }}>EDITOR&apos;S NOTE &amp; BALANCE</div>
+        <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: 'var(--ink)', lineHeight: 1.8 }}>{reproducibilityNote || description}</p>
         {nutritionEstimate && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#93c5fd' }}>
-            <Info size={14} />
-            <span>栄養変化の目安：{nutritionEstimate}</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'var(--paper)', borderRadius: '4px', fontSize: '12px', color: 'var(--sage-dark)', fontWeight: 600 }}>
+            <Info size={14} color="var(--terracotta)" /><span>栄養バランスの目安：{nutritionEstimate}（※AIによる概算推定）</span>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* 人数・調理時間 */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', fontSize: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Users size={16} color="#94a3b8" />
-          <input
-            type="number"
-            value={servings}
-            onChange={(e) => setServings(Number(e.target.value))}
-            style={{ width: '50px', padding: '4px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px' }}
-          />
-          <span>人分</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Clock size={16} color="#94a3b8" />
-          <span>約</span>
-          <input
-            type="number"
-            value={cookingTime}
-            onChange={(e) => setCookingTime(Number(e.target.value))}
-            style={{ width: '60px', padding: '4px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px' }}
-          />
-          <span>分</span>
-        </div>
-      </div>
-
-      {/* Before / After 変更ポイント比較 */}
       {substitutedList.length > 0 && (
-        <div style={{ marginBottom: '28px' }}>
-          <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>今回の Re:Make ポイント（Before / After）</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <section style={{ marginBottom: '36px' }}>
+          <div className="eyebrow" style={{ marginBottom: '4px' }}>WHAT CHANGED</div>
+          <h2 className="section-title" style={{ fontSize: '20px', marginBottom: '14px' }}>レシピの仕立て直しポイント（Before / After）</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {substitutedList.map((item, idx) => (
-              <div
-                key={item.id || idx}
-                style={{
-                  padding: '12px 14px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
-                  borderRadius: '8px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontWeight: 'bold', fontSize: '14px' }}>
-                  <span style={{ color: '#94a3b8', textDecoration: 'line-through' }}>
-                    {item.originalIngredient || '元の材料'}
-                  </span>
-                  <ArrowRight size={14} color="#10b981" />
-                  <span style={{ color: '#34d399' }}>
-                    {item.name} {item.amount}{item.unit}
-                  </span>
+              <div key={item.id || idx} style={{ padding: '16px 20px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '14px', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--muted)', textDecoration: 'line-through' }}>{item.originalIngredient || '元の材料'}</span>
+                  <ArrowRight size={15} color="var(--terracotta)" />
+                  <span style={{ color: 'var(--sage-dark)' }}>{item.name} {item.amount}{item.unit}</span>
                 </div>
-                {item.substitutionReason && (
-                  <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#cbd5e1', lineHeight: '1.5' }}>
-                    {item.substitutionReason}
-                  </p>
-                )}
+                {item.substitutionReason && <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: 'var(--muted)', lineHeight: 1.65 }}>{item.substitutionReason}</p>}
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* 失敗しないための注意ポイント */}
       {failurePoints.length > 0 && (
-        <div
-          style={{
-            padding: '14px 16px',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.4)',
-            borderRadius: '10px',
-            marginBottom: '28px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
-            <AlertTriangle size={16} /> 失敗しないための注意ポイント
+        <section style={{ padding: '20px 24px', backgroundColor: 'rgba(217, 185, 155, 0.18)', border: '1px solid var(--sand)', borderRadius: '6px', marginBottom: '36px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8a5338', fontWeight: 700, fontSize: '14px', marginBottom: '10px' }}>
+            <AlertTriangle size={16} color="var(--terracotta)" /><span>おいしく仕上げるためのコツ・注意点</span>
           </div>
-          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#fde68a', lineHeight: '1.6' }}>
-            {failurePoints.map((pt, i) => (
-              <li key={i} style={{ marginBottom: '4px' }}>{pt}</li>
-            ))}
+          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--ink)', lineHeight: 1.75 }}>
+            {failurePoints.map((pt, i) => <li key={i} style={{ marginBottom: '4px' }}>{pt}</li>)}
           </ul>
-        </div>
+        </section>
       )}
 
-      {/* 材料・分量（編集可能） */}
-      <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>材料・分量</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '28px' }}>
-        {ingredients.map((item, idx) => (
-          <div key={item.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              type="text"
-              value={item.name}
-              onChange={(e) => handleIngredientChange(item.id, 'name', e.target.value)}
-              style={{ flex: 2, padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', fontSize: '14px' }}
-            />
-            <input
-              type="text"
-              value={item.amount}
-              onChange={(e) => handleIngredientChange(item.id, 'amount', e.target.value)}
-              style={{ width: '70px', padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', textAlign: 'right', fontSize: '14px' }}
-            />
-            <input
-              type="text"
-              value={item.unit}
-              onChange={(e) => handleIngredientChange(item.id, 'unit', e.target.value)}
-              style={{ width: '65px', padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', fontSize: '14px' }}
-            />
-          </div>
-        ))}
-      </div>
+      <section style={{ marginBottom: '36px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px' }}>
+          <div><div className="eyebrow" style={{ marginBottom: '4px' }}>INGREDIENTS</div><h2 className="section-title" style={{ fontSize: '20px', margin: 0 }}>材料・分量</h2></div>
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>※数値や材料名は直接書き換えられます</span>
+        </div>
+        <div style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '6px', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {ingredients.map((item, idx) => (
+            <div key={item.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', paddingBottom: idx === ingredients.length - 1 ? 0 : '10px', borderBottom: idx === ingredients.length - 1 ? 'none' : '1px dashed var(--line)' }}>
+              <input type="text" value={item.name} onChange={(e) => handleIngredientChange(item.id, 'name', e.target.value)} style={{ flex: 2, minHeight: '40px', padding: '6px 10px', backgroundColor: 'var(--paper)', color: 'var(--ink)', border: '1px solid transparent', borderRadius: '4px', fontSize: '14px', fontWeight: item.isSubstituted ? 600 : 400 }} />
+              <input type="text" value={item.amount} onChange={(e) => handleIngredientChange(item.id, 'amount', e.target.value)} style={{ width: '72px', minHeight: '40px', padding: '6px 10px', backgroundColor: 'var(--paper)', color: 'var(--ink)', border: '1px solid transparent', borderRadius: '4px', textAlign: 'right', fontSize: '14px', fontWeight: 600 }} />
+              <input type="text" value={item.unit} onChange={(e) => handleIngredientChange(item.id, 'unit', e.target.value)} style={{ width: '64px', minHeight: '40px', padding: '6px 10px', backgroundColor: 'var(--paper)', color: 'var(--muted)', border: '1px solid transparent', borderRadius: '4px', fontSize: '13px' }} />
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* 調理手順（編集可能） */}
-      <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>作り方</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '32px' }}>
-        {steps.map((step, index) => (
-          <div key={index} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-            <span
-              style={{
-                backgroundColor: '#4f46e5',
-                color: '#fff',
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13px',
-                fontWeight: 'bold',
-                flexShrink: 0,
-                marginTop: '6px',
-              }}
-            >
-              {index + 1}
-            </span>
-            <textarea
-              rows={2}
-              value={step}
-              onChange={(e) => handleStepChange(index, e.target.value)}
-              style={{
-                flex: 1,
-                padding: '8px',
-                backgroundColor: '#222',
-                color: '#fff',
-                border: '1px solid #444',
-                borderRadius: '6px',
-                fontSize: '14px',
-                lineHeight: '1.5',
-              }}
-            />
-          </div>
-        ))}
-      </div>
+      <section style={{ marginBottom: '44px' }}>
+        <div className="eyebrow" style={{ marginBottom: '4px' }}>METHOD</div>
+        <h2 className="section-title" style={{ fontSize: '20px', marginBottom: '14px' }}>作り方</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {steps.map((step, index) => (
+            <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', padding: '16px 18px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '6px' }}>
+              <span style={{ fontFamily: 'var(--serif-en)', fontStyle: 'italic', fontSize: '20px', fontWeight: 600, color: 'var(--terracotta)', minWidth: '28px', lineHeight: 1.3, paddingTop: '4px' }}>0{index + 1}</span>
+              <textarea rows={2} value={step} onChange={(e) => handleStepChange(index, e.target.value)} style={{ flex: 1, padding: '8px 10px', backgroundColor: 'var(--paper)', color: 'var(--ink)', border: '1px solid transparent', borderRadius: '4px', fontSize: '14px', lineHeight: 1.65, resize: 'vertical' }} />
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* 保存ボタン */}
-      <button
-        onClick={handleSave}
-        style={{
-          width: '100%',
-          padding: '16px',
-          backgroundColor: '#10b981',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '10px',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          cursor: 'pointer',
-        }}
-      >
-        <Save size={20} /> My Recipe に追加する
+      <button onClick={handleSave} className="primary-link" style={{ width: '100%', minHeight: '56px', fontSize: '15px', cursor: 'pointer' }}>
+        <Save size={19} /><span>My Recipes に保存する</span>
       </button>
-    </div>
+    </main>
   );
 };

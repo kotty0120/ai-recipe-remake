@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, Clock, Users, ChefHat, Plus, CheckSquare, Square, Edit3 } from 'lucide-react';
+import { Trash2, Clock, Users, ChefHat, Plus, CheckSquare, Square, Edit3, Check, AlertTriangle } from 'lucide-react';
 import { getSavedRecipes, deleteRecipe, updateRecipeNote } from '../utils/storage';
 import type { Recipe } from '../types/recipe';
 
@@ -9,18 +9,13 @@ export const MyRecipes = () => {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [noteDraft, setNoteDraft] = useState('');
+  const [savedToastId, setSavedToastId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setRecipes(getSavedRecipes());
-  }, []);
+  useEffect(() => { setRecipes(getSavedRecipes()); }, []);
 
   const handleSelectRecipe = (recipe: Recipe) => {
-    if (selectedRecipeId === recipe.id) {
-      setSelectedRecipeId(null);
-    } else {
-      setSelectedRecipeId(recipe.id);
-      setNoteDraft(recipe.cookNote || '');
-    }
+    if (selectedRecipeId === recipe.id) setSelectedRecipeId(null);
+    else { setSelectedRecipeId(recipe.id); setNoteDraft(recipe.cookNote || ''); }
   };
 
   const toggleCheck = (key: string, e: React.MouseEvent) => {
@@ -32,7 +27,8 @@ export const MyRecipes = () => {
     e.stopPropagation();
     updateRecipeNote(id, noteDraft);
     setRecipes(getSavedRecipes());
-    alert('作ったメモを保存しました！');
+    setSavedToastId(id);
+    setTimeout(() => setSavedToastId(null), 2000);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -40,201 +36,101 @@ export const MyRecipes = () => {
     if (window.confirm('このレシピを削除してもよろしいですか？')) {
       deleteRecipe(id);
       setRecipes(getSavedRecipes());
-      if (selectedRecipeId === id) {
-        setSelectedRecipeId(null);
-      }
+      if (selectedRecipeId === id) setSelectedRecipeId(null);
     }
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>My Recipes（{recipes.length}件）</h2>
-        <Link to="/input" style={{ textDecoration: 'none' }}>
-          <button
-            style={{
-              padding: '10px 16px',
-              backgroundColor: '#4f46e5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
-            <Plus size={18} /> 新しく Re:Make する
-          </button>
+    <main className="page-shell" style={{ maxWidth: '820px', padding: '40px 0 80px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '32px', paddingBottom: '20px', borderBottom: '1px solid var(--line)' }}>
+        <div>
+          <div className="eyebrow" style={{ marginBottom: '6px' }}>YOUR RECIPE JOURNAL ({recipes.length})</div>
+          <h1 style={{ fontFamily: 'var(--serif-en)', fontStyle: 'italic', fontSize: 'clamp(32px, 4vw, 44px)', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.15, margin: '0 0 6px 0' }}>My Recipes</h1>
+          <p style={{ color: 'var(--muted)', fontSize: '13px', margin: 0 }}>あなた仕様に仕立て直したレシピ帳と、キッチンのメモ。</p>
+        </div>
+        <Link to="/input" className="primary-link" style={{ minHeight: '48px', padding: '0 20px', fontSize: '13px' }}>
+          <Plus size={16} /><span>新しく Re:Make する</span>
         </Link>
-      </div>
+      </header>
 
       {recipes.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '50px 20px', backgroundColor: '#1e1e1e', borderRadius: '12px' }}>
-          <ChefHat size={48} color="#666" style={{ marginBottom: '10px' }} />
-          <p style={{ color: '#aaa' }}>まだ保存されたレシピがありません。</p>
-          <Link to="/input">
-            <button style={{ marginTop: '15px', padding: '10px 20px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-              最初のレシピを Re:Make する
-            </button>
-          </Link>
+        <div style={{ textAlign: 'center', padding: '64px 24px', backgroundColor: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: '8px' }}>
+          <div style={{ width: '54px', height: '54px', borderRadius: '50%', backgroundColor: 'var(--sage-pale)', color: 'var(--sage-dark)', display: 'grid', placeItems: 'center', margin: '0 auto 16px' }}><ChefHat size={26} /></div>
+          <h3 style={{ fontFamily: 'var(--display-jp)', fontSize: '18px', marginBottom: '8px' }}>まだ保存されたレシピがありません</h3>
+          <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '24px' }}>お気に入りのレシピをアレンジして、最初の1ページを追加してみましょう。</p>
+          <Link to="/input" className="primary-link"><span>最初のレシピを Re:Make する</span></Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '15px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {recipes.map((recipe) => {
             const isOpen = selectedRecipeId === recipe.id;
             return (
-              <div
-                key={recipe.id}
-                onClick={() => handleSelectRecipe(recipe)}
-                style={{
-                  padding: '18px',
-                  backgroundColor: '#222',
-                  border: isOpen ? '2px solid #10b981' : '1px solid #333',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <article key={recipe.id} onClick={() => handleSelectRecipe(recipe)} style={{ padding: '22px 24px', backgroundColor: 'var(--card-bg)', border: isOpen ? '1.5px solid var(--sage-dark)' : '1px solid var(--line)', borderRadius: '8px', cursor: 'pointer', boxShadow: isOpen ? '0 12px 28px rgba(48, 58, 48, 0.06)' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                   <div>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{recipe.title}</h3>
-                    <div style={{ display: 'flex', gap: '15px', fontSize: '13px', color: '#aaa', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Users size={14} /> {recipe.servings}人分
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={14} /> {recipe.cookingTime}分
-                      </span>
-                      {recipe.reproducibility && (
-                        <span style={{ color: '#34d399' }}>再現性: {recipe.reproducibility}</span>
-                      )}
+                    <h2 style={{ fontFamily: 'var(--display-jp)', margin: '0 0 10px 0', fontSize: '18px', color: 'var(--ink)' }}>{recipe.title}</h2>
+                    <div style={{ display: 'flex', gap: '14px', fontSize: '12px', color: 'var(--muted)', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Users size={14} color="var(--sage-dark)" /> {recipe.servings}人分</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={14} color="var(--sage-dark)" /> 約{recipe.cookingTime}分</span>
+                      {recipe.reproducibility && <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: 'var(--sage-pale)', color: 'var(--sage-dark)', fontWeight: 600 }}>再現性: {recipe.reproducibility}</span>}
                       <span>保存日: {recipe.createdAt}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => handleDelete(recipe.id, e)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      padding: '6px',
-                    }}
-                    title="削除"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <button type="button" onClick={(e) => handleDelete(recipe.id, e)} style={{ background: 'none', border: 'none', color: 'var(--muted)', padding: '8px', borderRadius: '4px' }} title="削除"><Trash2 size={17} /></button>
                 </div>
 
-                {/* クリックで詳細・キッチンモード開閉 */}
                 {isOpen && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #333', cursor: 'default' }}
-                  >
-                    <p style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '16px', lineHeight: '1.6' }}>
-                      {recipe.description}
-                    </p>
-
-                    {/* 材料チェックリスト */}
-                    <h4 style={{ marginBottom: '8px' }}>材料（タップで準備チェック）</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
-                      {recipe.ingredients.map((ing, i) => {
-                        const checkKey = `${recipe.id}-${i}`;
-                        const checked = !!checkedItems[checkKey];
-                        return (
-                          <div
-                            key={ing.id || i}
-                            onClick={(e) => toggleCheck(checkKey, e)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '6px 8px',
-                              backgroundColor: '#1a1a1a',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              textDecoration: checked ? 'line-through' : 'none',
-                              color: checked ? '#666' : '#fff',
-                              fontSize: '14px',
-                            }}
-                          >
-                            {checked ? <CheckSquare size={16} color="#10b981" /> : <Square size={16} color="#888" />}
-                            <span>
-                              {ing.name}：{ing.amount}{ing.unit}
-                            </span>
-                            {ing.isSubstituted && (
-                              <span style={{ color: '#10b981', fontSize: '11px', marginLeft: 'auto' }}>★Re:Make</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                  <div onClick={(e) => e.stopPropagation()} style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--line)', cursor: 'default' }}>
+                    {recipe.description && <p style={{ fontSize: '14px', color: 'var(--ink)', marginBottom: '20px', lineHeight: 1.75 }}>{recipe.description}</p>}
+                    <div style={{ marginBottom: '24px' }}>
+                      <div className="eyebrow" style={{ marginBottom: '4px', color: 'var(--sage-dark)' }}>INGREDIENTS CHECKLIST</div>
+                      <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>材料（タップで準備チェック）</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {recipe.ingredients.map((ing, i) => {
+                          const checkKey = `${recipe.id}-${i}`;
+                          const checked = !!checkedItems[checkKey];
+                          return (
+                            <div key={ing.id || i} onClick={(e) => toggleCheck(checkKey, e)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'var(--paper)', borderRadius: '6px', cursor: 'pointer', textDecoration: checked ? 'line-through' : 'none', color: checked ? 'var(--muted)' : 'var(--ink)', fontSize: '14px' }}>
+                              {checked ? <CheckSquare size={17} color="var(--sage-dark)" /> : <Square size={17} color="var(--muted)" />}
+                              <span>{ing.name}：{ing.amount}{ing.unit}</span>
+                              {ing.isSubstituted && <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 600, color: 'var(--terracotta)', backgroundColor: 'rgba(185, 111, 80, 0.12)', padding: '2px 8px', borderRadius: '10px' }}>Re:Make</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {/* 作り方 */}
-                    <h4 style={{ marginBottom: '8px' }}>作り方</h4>
-                    <ol style={{ paddingLeft: '20px', fontSize: '14px', marginBottom: '20px' }}>
-                      {recipe.steps.map((step, i) => (
-                        <li key={i} style={{ marginBottom: '8px', lineHeight: '1.6' }}>{step}</li>
-                      ))}
-                    </ol>
+                    <div style={{ marginBottom: '24px' }}>
+                      <div className="eyebrow" style={{ marginBottom: '4px', color: 'var(--sage-dark)' }}>METHOD</div>
+                      <h3 style={{ fontSize: '15px', marginBottom: '10px' }}>作り方</h3>
+                      <ol style={{ paddingLeft: '20px', fontSize: '14px', margin: 0, color: 'var(--ink)' }}>
+                        {recipe.steps.map((step, i) => <li key={i} style={{ marginBottom: '10px', lineHeight: 1.7 }}>{step}</li>)}
+                      </ol>
+                    </div>
 
-                    {/* 失敗ポイント */}
                     {recipe.failurePoints && recipe.failurePoints.length > 0 && (
-                      <div style={{ padding: '12px', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', marginBottom: '20px', fontSize: '13px', color: '#fde68a' }}>
-                        <strong>注意ポイント：</strong>
-                        <ul style={{ margin: '4px 0 0 0', paddingLeft: '18px' }}>
-                          {recipe.failurePoints.map((pt, idx) => (
-                            <li key={idx}>{pt}</li>
-                          ))}
-                        </ul>
+                      <div style={{ padding: '16px', backgroundColor: 'rgba(217, 185, 155, 0.2)', border: '1px solid var(--sand)', borderRadius: '6px', marginBottom: '24px', fontSize: '13px', color: 'var(--ink)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#8a5338', marginBottom: '6px' }}>
+                          <AlertTriangle size={15} color="var(--terracotta)" /><span>おいしく仕上げるコツ・注意点</span>
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: 1.7 }}>{recipe.failurePoints.map((pt, idx) => <li key={idx}>{pt}</li>)}</ul>
                       </div>
                     )}
 
-                    {/* 作ったメモ・改善記録 */}
-                    <div style={{ padding: '14px', backgroundColor: '#1a1a1a', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#a5b4fc' }}>
-                        <Edit3 size={14} /> 作った記録・次回アレンジメモ
-                      </div>
-                      <textarea
-                        rows={2}
-                        placeholder="例：焼き時間は20分でちょうど良かった！次はココアを少し増やす。"
-                        value={noteDraft}
-                        onChange={(e) => setNoteDraft(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          backgroundColor: '#222',
-                          color: '#fff',
-                          border: '1px solid #444',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          marginBottom: '8px',
-                        }}
-                      />
-                      <button
-                        onClick={(e) => handleSaveNote(recipe.id, e)}
-                        style={{
-                          padding: '6px 14px',
-                          backgroundColor: '#4f46e5',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        メモを保存
+                    <div style={{ padding: '16px 18px', backgroundColor: 'var(--paper)', border: '1px solid var(--line)', borderRadius: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, marginBottom: '8px', color: 'var(--sage-dark)' }}><Edit3 size={14} /><span>作った記録・次回アレンジメモ</span></div>
+                      <textarea rows={2} placeholder="例：焼き時間は20分でしっとり仕上がった！次は甘酒を少し足してみる。" value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} style={{ width: '100%', padding: '10px 12px', backgroundColor: 'var(--card-bg)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', fontSize: '13px', lineHeight: 1.6, marginBottom: '10px' }} />
+                      <button type="button" onClick={(e) => handleSaveNote(recipe.id, e)} className="primary-link" style={{ minHeight: '40px', padding: '0 16px', fontSize: '12px' }}>
+                        {savedToastId === recipe.id ? (<><Check size={14} /><span>メモを保存しました</span></>) : (<span>メモを保存する</span>)}
                       </button>
                     </div>
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
       )}
-    </div>
+    </main>
   );
 };

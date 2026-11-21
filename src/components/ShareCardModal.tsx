@@ -1,273 +1,326 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Trash2, Clock, Users, ChefHat, Plus, CheckSquare, Square, Edit3, Share2 } from 'lucide-react';
-import { getSavedRecipes, deleteRecipe, updateRecipeNote } from '../utils/storage';
-import { ShareCardModal } from '../components/ShareCardModal';
+﻿import { useState, useEffect, useRef } from 'react';
+import { X, Download, ImagePlus, Share2 } from 'lucide-react';
 import type { Recipe } from '../types/recipe';
 
-export const MyRecipes = () => {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
-  const [noteDraft, setNoteDraft] = useState('');
-  const [shareTargetRecipe, setShareTargetRecipe] = useState<Recipe | null>(null);
+interface ShareCardModalProps {
+  recipe: Recipe;
+  onClose: () => void;
+}
+
+export const ShareCardModal = ({ recipe, onClose }: ShareCardModalProps) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState(
+    recipe.cookNote || '自分仕様に美味しく再構築できました！'
+  );
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoDataUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
-    setRecipes(getSavedRecipes());
-  }, []);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-  const handleSelectRecipe = (recipe: Recipe) => {
-    if (selectedRecipeId === recipe.id) {
-      setSelectedRecipeId(null);
-    } else {
-      setSelectedRecipeId(recipe.id);
-      setNoteDraft(recipe.cookNote || '');
-    }
-  };
+    const W = 720;
+    const H = 900;
+    canvas.width = W;
+    canvas.height = H;
 
-  const toggleCheck = (key: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCheckedItems((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+    const drawCard = (img?: HTMLImageElement) => {
+      ctx.fillStyle = '#F5F2EA';
+      ctx.fillRect(0, 0, W, H);
 
-  const handleSaveNote = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    updateRecipeNote(id, noteDraft);
-    setRecipes(getSavedRecipes());
-    alert('作ったメモを保存しました！');
-  };
+      ctx.strokeStyle = '#E5E1D7';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(24, 24, W - 48, H - 48);
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (window.confirm('このレシピを削除してもよろしいですか？')) {
-      deleteRecipe(id);
-      setRecipes(getSavedRecipes());
-      if (selectedRecipeId === id) {
-        setSelectedRecipeId(null);
+      ctx.fillStyle = '#53694F';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillText('MY RECIPE RE:MADE', 52, 68);
+
+      ctx.fillStyle = '#B96F50';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`再現性: ${recipe.reproducibility || '高'}`, W - 52, 68);
+      ctx.textAlign = 'left';
+
+      const photoX = 52;
+      const photoY = 92;
+      const photoW = W - 104;
+      const photoH = 320;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(photoX, photoY, photoW, photoH, 16);
+      ctx.clip();
+
+      if (img) {
+        const scale = Math.max(photoW / img.width, photoH / img.height);
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+        const offsetX = photoX + (photoW - drawW) / 2;
+        const offsetY = photoY + (photoH - drawH) / 2;
+        ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+      } else {
+        ctx.fillStyle = '#E5E9DF';
+        ctx.fillRect(photoX, photoY, photoW, photoH);
+        ctx.fillStyle = '#303A30';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Good food, your way.', W / 2, photoY + photoH / 2 - 8);
+        ctx.font = '14px sans-serif';
+        ctx.fillStyle = '#6F756A';
+        ctx.fillText(
+          '（完成写真をアップロードするとここに表示されます）',
+          W / 2,
+          photoY + photoH / 2 + 22
+        );
+        ctx.textAlign = 'left';
       }
+      ctx.restore();
+
+      ctx.fillStyle = '#303A30';
+      ctx.font = 'bold 28px sans-serif';
+      const titleText =
+        recipe.title.length > 20 ? recipe.title.slice(0, 20) + '…' : recipe.title;
+      ctx.fillText(titleText, 52, 462);
+
+      ctx.strokeStyle = '#E5E1D7';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(52, 484);
+      ctx.lineTo(W - 52, 484);
+      ctx.stroke();
+
+      ctx.fillStyle = '#B96F50';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText('THIS RE:MAKE SWAP（変更した材料）', 52, 518);
+
+      const swaps = recipe.ingredients.filter((i) => i.isSubstituted).slice(0, 3);
+      let currentY = 554;
+
+      if (swaps.length > 0) {
+        swaps.forEach((swap) => {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.roundRect(52, currentY - 24, W - 104, 42, 10);
+          ctx.fill();
+
+          ctx.fillStyle = '#85877D';
+          ctx.font = '16px sans-serif';
+          const before = swap.originalIngredient || '元の材料';
+          ctx.fillText(before, 68, currentY + 3);
+
+          ctx.fillStyle = '#53694F';
+          ctx.font = 'bold 17px sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillText(`→ ${swap.name} ${swap.amount}${swap.unit}`, W - 68, currentY + 3);
+          ctx.textAlign = 'left';
+
+          currentY += 54;
+        });
+      } else {
+        ctx.fillStyle = '#303A30';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('・ヘルシー＆高再現性バランスに配合を再構築', 52, currentY);
+        currentY += 54;
+      }
+
+      if (caption.trim()) {
+        ctx.fillStyle = '#303A30';
+        ctx.font = 'italic 17px sans-serif';
+        const memoText =
+          caption.length > 34 ? `“${caption.slice(0, 34)}…”` : `“${caption}”`;
+        ctx.fillText(memoText, 52, 745);
+      }
+
+      ctx.fillStyle = '#303A30';
+      ctx.fillRect(24, H - 96, W - 48, 72);
+
+      ctx.fillStyle = '#F5F2EA';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('Good food, your way.', 52, H - 52);
+
+      ctx.fillStyle = '#E5E9DF';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('Re:cipe', W - 52, H - 52);
+      ctx.textAlign = 'left';
+    };
+
+    if (photoDataUrl) {
+      const img = new Image();
+      img.onload = () => drawCard(img);
+      img.src = photoDataUrl;
+    } else {
+      drawCard();
     }
+  }, [recipe, photoDataUrl, caption]);
+
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `recipe-remake-${recipe.id}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>My Recipes（{recipes.length}件）</h2>
-        <Link to="/input" style={{ textDecoration: 'none' }}>
-          <button
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(48, 58, 48, 0.65)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        zIndex: 1000,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: '#F5F2EA',
+          color: '#303A30',
+          borderRadius: '16px',
+          padding: '22px',
+          maxWidth: '460px',
+          width: '100%',
+          maxHeight: '92vh',
+          overflowY: 'auto',
+          border: '1px solid #E5E1D7',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '14px',
+          }}
+        >
+          <div
             style={{
-              padding: '10px 16px',
-              backgroundColor: '#4f46e5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
+              fontWeight: 700,
+              color: '#53694F',
             }}
           >
-            <Plus size={18} /> 新しく Re:Make する
+            <Share2 size={18} /> Re:Make Challenge カード
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#85877D',
+              cursor: 'pointer',
+            }}
+          >
+            <X size={22} />
           </button>
-        </Link>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            marginBottom: '14px',
+          }}
+        >
+          <label
+            style={{
+              padding: '11px',
+              backgroundColor: '#FFFFFF',
+              border: '1px dashed #71816A',
+              borderRadius: '10px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: '#303A30',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            <ImagePlus size={16} color="#53694F" />
+            {photoDataUrl ? '完成写真を変更する' : '作った料理の写真を載せる（任意）'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              style={{ display: 'none' }}
+            />
+          </label>
+
+          <input
+            type="text"
+            placeholder="カードに載せるひとこと感想"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            style={{
+              padding: '10px 12px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E5E1D7',
+              borderRadius: '10px',
+              color: '#303A30',
+              fontSize: '13px',
+            }}
+          />
+        </div>
+
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '100%',
+              maxWidth: '340px',
+              height: 'auto',
+              borderRadius: '10px',
+              boxShadow: '0 8px 24px rgba(48, 58, 48, 0.14)',
+            }}
+          />
+        </div>
+
+        <button
+          onClick={handleDownload}
+          style={{
+            width: '100%',
+            padding: '14px',
+            backgroundColor: '#53694F',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '10px',
+            fontSize: '14.5px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          <Download size={18} /> シェア画像を保存する（PNG）
+        </button>
       </div>
-
-      {recipes.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '50px 20px', backgroundColor: '#1e1e1e', borderRadius: '12px' }}>
-          <ChefHat size={48} color="#666" style={{ marginBottom: '10px' }} />
-          <p style={{ color: '#aaa' }}>まだ保存されたレシピがありません。</p>
-          <Link to="/input">
-            <button style={{ marginTop: '15px', padding: '10px 20px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-              最初のレシピを Re:Make する
-            </button>
-          </Link>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: '15px' }}>
-          {recipes.map((recipe) => {
-            const isOpen = selectedRecipeId === recipe.id;
-            return (
-              <div
-                key={recipe.id}
-                onClick={() => handleSelectRecipe(recipe)}
-                style={{
-                  padding: '18px',
-                  backgroundColor: '#222',
-                  border: isOpen ? '2px solid #10b981' : '1px solid #333',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{recipe.title}</h3>
-                    <div style={{ display: 'flex', gap: '15px', fontSize: '13px', color: '#aaa', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Users size={14} /> {recipe.servings}人分
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={14} /> {recipe.cookingTime}分
-                      </span>
-                      {recipe.reproducibility && (
-                        <span style={{ color: '#34d399' }}>再現性: {recipe.reproducibility}</span>
-                      )}
-                      <span>保存日: {recipe.createdAt}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => handleDelete(recipe.id, e)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      padding: '6px',
-                    }}
-                    title="削除"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-
-                {/* クリックで詳細・キッチンモード開閉 */}
-                {isOpen && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #333', cursor: 'default' }}
-                  >
-                    {/* Re:Make Challenge シェアカード生成ボタン */}
-                    <button
-                      onClick={() => setShareTargetRecipe(recipe)}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        marginBottom: '18px',
-                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                        border: '1px solid #10b981',
-                        color: '#34d399',
-                        borderRadius: '8px',
-                        fontWeight: 'bold',
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Share2 size={16} /> Re:Make Challenge カードを作る（SNSシェア用画像）
-                    </button>
-
-                    <p style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '16px', lineHeight: '1.6' }}>
-                      {recipe.description}
-                    </p>
-
-                    {/* 材料チェックリスト */}
-                    <h4 style={{ marginBottom: '8px' }}>材料（タップで準備チェック）</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
-                      {recipe.ingredients.map((ing, i) => {
-                        const checkKey = `${recipe.id}-${i}`;
-                        const checked = !!checkedItems[checkKey];
-                        return (
-                          <div
-                            key={ing.id || i}
-                            onClick={(e) => toggleCheck(checkKey, e)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '6px 8px',
-                              backgroundColor: '#1a1a1a',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              textDecoration: checked ? 'line-through' : 'none',
-                              color: checked ? '#666' : '#fff',
-                              fontSize: '14px',
-                            }}
-                          >
-                            {checked ? <CheckSquare size={16} color="#10b981" /> : <Square size={16} color="#888" />}
-                            <span>
-                              {ing.name}：{ing.amount}{ing.unit}
-                            </span>
-                            {ing.isSubstituted && (
-                              <span style={{ color: '#10b981', fontSize: '11px', marginLeft: 'auto' }}>★Re:Make</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* 作り方 */}
-                    <h4 style={{ marginBottom: '8px' }}>作り方</h4>
-                    <ol style={{ paddingLeft: '20px', fontSize: '14px', marginBottom: '20px' }}>
-                      {recipe.steps.map((step, i) => (
-                        <li key={i} style={{ marginBottom: '8px', lineHeight: '1.6' }}>{step}</li>
-                      ))}
-                    </ol>
-
-                    {/* 失敗ポイント */}
-                    {recipe.failurePoints && recipe.failurePoints.length > 0 && (
-                      <div style={{ padding: '12px', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', marginBottom: '20px', fontSize: '13px', color: '#fde68a' }}>
-                        <strong>注意ポイント：</strong>
-                        <ul style={{ margin: '4px 0 0 0', paddingLeft: '18px' }}>
-                          {recipe.failurePoints.map((pt, idx) => (
-                            <li key={idx}>{pt}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* 作ったメモ・改善記録 */}
-                    <div style={{ padding: '14px', backgroundColor: '#1a1a1a', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#a5b4fc' }}>
-                        <Edit3 size={14} /> 作った記録・次回アレンジメモ
-                      </div>
-                      <textarea
-                        rows={2}
-                        placeholder="例：焼き時間は20分でちょうど良かった！次はココアを少し増やす。"
-                        value={noteDraft}
-                        onChange={(e) => setNoteDraft(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          backgroundColor: '#222',
-                          color: '#fff',
-                          border: '1px solid #444',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          marginBottom: '8px',
-                        }}
-                      />
-                      <button
-                        onClick={(e) => handleSaveNote(recipe.id, e)}
-                        style={{
-                          padding: '6px 14px',
-                          backgroundColor: '#4f46e5',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        メモを保存
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* シェアカード生成モーダル */}
-      {shareTargetRecipe && (
-        <ShareCardModal
-          recipe={shareTargetRecipe}
-          onClose={() => setShareTargetRecipe(null)}
-        />
-      )}
     </div>
   );
 };

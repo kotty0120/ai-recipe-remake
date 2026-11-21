@@ -1,4 +1,5 @@
-import type { Recipe } from '../types/recipe';
+﻿import type { Recipe } from '../types/recipe';
+import { getTasteProfile } from './storage';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -28,7 +29,7 @@ export const transformRecipeWithGemini = async (
 ユーザーの「食べたい元レシピ（テキストまたは画像）」を解析し、指定された「アレンジの方向性」と「使いたい手持ち食材」に合わせて、本当に美味しく失敗しないレシピへ再構築してください。
 
 【アレンジの方向性】
-${params.preferences.join('、') || 'おまかせ（美味しさとヘルシーさのバランス重視）'}
+${params.preferences.join('、') || 'おまかせ（美味しさと心地よさのバランス重視）'}
 
 【使いたい手持ち食材】
 ${params.selectedIngredients.join('、') || '特になし（スーパーで手に入りやすい最適な代替食材を提案）'}
@@ -38,9 +39,10 @@ ${params.recipeText}
 
 【重要な設計・出力ルール】
 1. 食材の役割（小麦粉＝構造・グルテン、砂糖＝甘み・保水性・焼き色、バター＝風味・コク・乳化、卵＝結着・膨張など）を考慮し、単純置換ではなく水分量・油分量・加熱温度・焼き時間を論理的に再計算してください。
-2. 代替した材料には isSubstituted: true を設定し、originalIngredient に「元の材料名と分量（例：薄力粉 100g）」を記載し、substitutionReason に「なぜこの分量・調理法に変えたのか」を書いてください。
-3. 実際の調理で失敗しやすいポイント（生地の硬さの目安、焦げやすさ、混ぜすぎ注意など）を failurePoints に2〜3個具体的に挙げてください。
-4. 必ず以下のJSONフォーマットのみを出力してください（余計な挨拶やマークダウン記号は不要です）。
+2. 「腸活（発酵・食物繊維）」が指定されている場合は、料理のジャンルや味わいに自然に馴染む発酵食品（塩麹、甘酒、味噌、ヨーグルト、納豆など）や食物繊維・オリゴ糖（オートミール、きのこ、海藻、おから、はちみつ等）を無理なく取り入れ、旨みやしっとり感を高める工夫をしてください。
+3. 代替した材料には isSubstituted: true を設定し、originalIngredient に「元の材料名と分量（例：薄力粉 100g）」を記載し、substitutionReason に「なぜこの分量・調理法に変えたのか」を書いてください。
+4. 実際の調理で失敗しやすいポイント（生地の硬さの目安、焦げやすさ、混ぜすぎ注意など）を failurePoints に2〜3個具体的に挙げてください。
+5. 必ず以下のJSONフォーマットのみを出力してください（余計な挨拶やマークダウン記号は不要です）。
 
 {
   "title": "再構築後の魅力的な料理名",
@@ -49,7 +51,7 @@ ${params.recipeText}
   "cookingTime": 25,
   "reproducibility": "高",
   "reproducibilityNote": "再現性の根拠や仕上がりの食感予想（1〜2文）",
-  "nutritionEstimate": "元レシピ比での栄養変化の目安（例：推定糖質 約30%オフ / 脂質 約25%カット ※AIによる概算推定値）",
+  "nutritionEstimate": "元レシピ比での栄養変化の目安（例：推定糖質 約30%オフ / 食物繊維・発酵素材プラス ※AIによる概算推定値）",
   "failurePoints": [
     "失敗しやすいポイント1と対策",
     "失敗しやすいポイント2と対策"
@@ -94,42 +96,27 @@ ${params.recipeText}
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{ parts }],
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts }] }),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         lastErrorMessage = errorData.error?.message || `HTTP ${response.status} (${model})`;
-        if (response.status === 500 || response.status === 404 || response.status === 400) {
-          continue;
-        }
+        if (response.status === 500 || response.status === 404 || response.status === 400) continue;
         throw new Error(lastErrorMessage);
       }
 
       const data = await response.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!rawText) {
-        lastErrorMessage = 'AIからの応答が空でした。';
-        continue;
-      }
+      if (!rawText) { lastErrorMessage = 'AIからの応答が空でした。'; continue; }
 
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        lastErrorMessage = 'JSON形式の抽出に失敗しました。';
-        continue;
-      }
+      if (!jsonMatch) { lastErrorMessage = 'JSON形式の抽出に失敗しました。'; continue; }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      const validRepro = ['高', '中', '工夫が必要'].includes(parsed.reproducibility)
-        ? parsed.reproducibility
-        : '高';
+      const validRepro = ['高', '中', '工夫が必要'].includes(parsed.reproducibility) ? parsed.reproducibility : '高';
 
       return {
         title: parsed.title || 'Re:Make アレンジレシピ',
@@ -150,27 +137,25 @@ ${params.recipeText}
 
   throw new Error(`レシピの再構築に失敗しました。詳細: ${lastErrorMessage}`);
 };
+
 export interface KitchenIdea {
   title: string;
   description: string;
   cookingTime: number;
   usedIngredients: string[];
-  extraIngredientTip: string; // 「あと1つ買い足すなら？」の提案
+  extraIngredientTip: string;
 }
 
 export const suggestRecipesFromKitchen = async (
   ingredients: string[],
   mood: string
 ): Promise<KitchenIdea[]> => {
-  if (!API_KEY) {
-    throw new Error('APIキーが設定されていません。');
-  }
-
+  if (!API_KEY) throw new Error('APIキーが設定されていません。');
   const profile = getTasteProfile();
 
   const prompt = `
 あなたはプロの料理研究家兼管理栄養士です。
-ユーザーの「今家にある食材」と「今の気分・食べたいジャンル」、さらに「学習済み味覚プロファイル（My Taste Memory）」をもとに、美味しく失敗しないヘルシーレシピのアイデアを3つ提案してください。
+ユーザーの「今家にある食材」と「今の気分・食べたいジャンル」、さらに「学習済み味覚プロファイル（My Taste Memory）」をもとに、美味しく失敗しないレシピのアイデアを3つ提案してください。
 
 【今家にある食材】
 ${ingredients.join('、') || '米粉、卵、豆乳、バナナ'}
@@ -183,8 +168,9 @@ ${profile.texturePreference}
 
 【重要な出力ルール】
 1. 3つのレシピは食感や調理法（焼く・混ぜるだけ・レンジなど）のバリエーションを変えて提案してください。
-2. 各レシピについて、家にある食材をどう活かすかと、「あと1つ買い足すなら（または家にあれば加えると最高な食材）」を1つ提案してください。
-3. 必ず以下のJSON配列フォーマットのみを出力してください（余計な挨拶やマークダウン記号は不要です）。
+2. 「腸活（発酵・食物繊維）」が含まれる場合は、発酵調味料や食物繊維豊富な食材を美味しく活かす提案にしてください。
+3. 各レシピについて、家にある食材をどう活かすかと、「あと1つ買い足すなら（または家にあれば加えると最高な食材）」を1つ提案してください。
+4. 必ず以下のJSON配列フォーマットのみを出力してください（余計な挨拶やマークダウン記号は不要です）。
 
 [
   {
@@ -206,17 +192,13 @@ ${profile.texturePreference}
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         }
       );
 
       if (!response.ok) {
         lastErrorMessage = `HTTP ${response.status} (${model})`;
-        if (response.status === 500 || response.status === 404 || response.status === 400) {
-          continue;
-        }
+        if (response.status === 500 || response.status === 404 || response.status === 400) continue;
         throw new Error(lastErrorMessage);
       }
 
