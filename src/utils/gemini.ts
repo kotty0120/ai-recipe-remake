@@ -15,61 +15,39 @@ async function callGeminiSecurely(
   prompt: string,
   inlineData?: { mime_type: string; data: string }
 ): Promise<string> {
-  try {
-    const res = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, inlineData }),
-    });
+  let lastErr = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, inlineData }),
+      });
 
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const data = await res.json();
+      const textBody = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(textBody);
+      } catch {
+        throw new Error(`サーバー応答エラー (HTTP ${res.status}): ${textBody.slice(0, 120)}`);
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || `サーバーエラー (${res.status})`);
+        throw new Error(data.error || `サーバーエラー (HTTP ${res.status})`);
       }
       if (data.text) {
         return data.text;
       }
-    }
-  } catch (err: any) {
-    throw new Error(err.message || 'サーバーとの通信に失敗しました。');
-  }
-
-  if (!LOCAL_FALLBACK_KEY) {
-    throw new Error('API接続設定が見つかりません。Vercelの環境変数 GEMINI_API_KEY を確認してください。');
-  }
-
-  const parts: any[] = [{ text: prompt }];
-  if (inlineData) {
-    parts.push({ inline_data: inlineData });
-  }
-
-  const models = ['gemini-3.8-flash', 'gemini-3.8-flash', 'gemini-3.8-flash'];
-  let lastError = '';
-
-  for (const model of models) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${LOCAL_FALLBACK_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }] }),
+      throw new Error('AIからの応答が空でした。');
+    } catch (err: any) {
+      lastErr = err?.message || '通信エラー';
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1200));
+        continue;
       }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      lastError = errorData.error?.message || `HTTP ${response.status}`;
-      continue;
     }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (text) return text;
   }
-
-  throw new Error(`レシピの再構築に失敗しました: ${lastError}`);
+  throw new Error(`通信エラー: ${lastErr}（数秒おいて再度お試しください）`);
 }
 
 export const transformRecipeWithGemini = async (
@@ -233,5 +211,6 @@ ${profile.texturePreference}
     extraIngredientTip: item.extraIngredientTip || '',
   }));
 };
+
 
 
