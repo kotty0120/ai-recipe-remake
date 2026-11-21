@@ -1,122 +1,114 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { ChefHat, Sparkles, BookOpen } from 'lucide-react';
+import { RecipeInput } from './pages/RecipeInput';
+import { IngredientSelect } from './pages/IngredientSelect';
+import { TransformResult } from './pages/TransformResult';
+import { MyRecipes } from './pages/MyRecipes';
+import { getSavedRecipes } from './utils/storage';
 
-function App() {
-  const [count, setCount] = useState(0)
+const Home = () => {
+  const recentRecipes = getSavedRecipes().slice(0, 3);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div style={{ maxWidth: '680px', margin: '0 auto', padding: '30px 20px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <div style={{ display: 'inline-flex', padding: '12px', backgroundColor: 'rgba(79, 70, 229, 0.2)', borderRadius: '50%', marginBottom: '15px' }}>
+          <ChefHat size={40} color="#818cf8" />
         </div>
+        <h1 style={{ fontSize: '32px', margin: '0 0 10px 0' }}>AI Recipe Re:Make</h1>
+        <p style={{ color: '#aaa', fontSize: '16px', margin: 0 }}>
+          好きな料理を、今ある食材で、もっと自分らしく。
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '40px' }}>
+        <Link to="/input" style={{ textDecoration: 'none' }}>
+          <div
+            style={{
+              padding: '24px',
+              backgroundColor: '#4f46e5',
+              color: '#fff',
+              borderRadius: '12px',
+              textAlign: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <Sparkles size={28} style={{ marginBottom: '8px' }} />
+            <div style={{ fontWeight: 'bold', fontSize: '16px' }}>レシピを変換する</div>
+            <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '4px' }}>画像・文章から再構築</div>
+          </div>
+        </Link>
+
+        <Link to="/my-recipes" style={{ textDecoration: 'none' }}>
+          <div
+            style={{
+              padding: '24px',
+              backgroundColor: '#222',
+              border: '1px solid #444',
+              color: '#fff',
+              borderRadius: '12px',
+              textAlign: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <BookOpen size={28} color="#10b981" style={{ marginBottom: '8px' }} />
+            <div style={{ fontWeight: 'bold', fontSize: '16px' }}>マイレシピ一覧</div>
+            <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>保存したレシピを見る</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* 最近保存したレシピ */}
+      {recentRecipes.length > 0 && (
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+          <h3 style={{ fontSize: '16px', color: '#ccc', marginBottom: '12px' }}>最近保存したレシピ</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {recentRecipes.map((r) => (
+              <Link key={r.id} to="/my-recipes" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ padding: '14px', backgroundColor: '#1e1e1e', borderRadius: '8px', border: '1px solid #333' }}>
+                  <div style={{ fontWeight: 'bold' }}>{r.title}</div>
+                  <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                    {r.servings}人分・約{r.cookingTime}分
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      )}
+    </div>
+  );
+};
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+export function App() {
+  return (
+    <BrowserRouter>
+      <nav
+        style={{
+          padding: '12px 20px',
+          borderBottom: '1px solid #333',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '20px',
+          backgroundColor: '#111',
+          fontSize: '14px',
+        }}
+      >
+        <Link to="/" style={{ color: '#fff', textDecoration: 'none' }}>ホーム</Link>
+        <Link to="/input" style={{ color: '#fff', textDecoration: 'none' }}>1.入力</Link>
+        <Link to="/ingredients" style={{ color: '#fff', textDecoration: 'none' }}>2.食材</Link>
+        <Link to="/result" style={{ color: '#fff', textDecoration: 'none' }}>3.結果</Link>
+        <Link to="/my-recipes" style={{ color: '#fff', textDecoration: 'none' }}>マイレシピ</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/input" element={<RecipeInput />} />
+        <Route path="/ingredients" element={<IngredientSelect />} />
+        <Route path="/result" element={<TransformResult />} />
+        <Route path="/my-recipes" element={<MyRecipes />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
