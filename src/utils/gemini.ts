@@ -47,7 +47,7 @@ async function callGeminiSecurely(
     parts.push({ inline_data: inlineData });
   }
 
-  const models = ['gemini-3.8-flash', 'gemini-3.0-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-3.8-flash', 'gemini-3.8-flash'];
   let lastError = '';
 
   for (const model of models) {
@@ -235,3 +235,4 @@ ${profile.texturePreference}
     extraIngredientTip: item.extraIngredientTip || '',
   }));
 };
+
