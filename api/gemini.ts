@@ -30,6 +30,12 @@
         signal: controller.signal,
         body: JSON.stringify({
           contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+          },
         }),
       }
     );
@@ -58,7 +64,7 @@
     clearTimeout(timeoutId);
     const msg =
       err.name === 'AbortError'
-        ? '処理がタイムアウトしました。もう一度お試しください。'
+        ? '処理が9秒を超えたため中断しました。もう一度お試しください。'
         : err.message || '通信エラー';
     return res.status(500).json({ error: `AI処理に失敗しました: ${msg}` });
   }
