@@ -150,3 +150,97 @@ ${params.recipeText}
 
   throw new Error(`レシピの再構築に失敗しました。詳細: ${lastErrorMessage}`);
 };
+export interface KitchenIdea {
+  title: string;
+  description: string;
+  cookingTime: number;
+  usedIngredients: string[];
+  extraIngredientTip: string; // 「あと1つ買い足すなら？」の提案
+}
+
+export const suggestRecipesFromKitchen = async (
+  ingredients: string[],
+  mood: string
+): Promise<KitchenIdea[]> => {
+  if (!API_KEY) {
+    throw new Error('APIキーが設定されていません。');
+  }
+
+  const profile = getTasteProfile();
+
+  const prompt = `
+あなたはプロの料理研究家兼管理栄養士です。
+ユーザーの「今家にある食材」と「今の気分・食べたいジャンル」、さらに「学習済み味覚プロファイル（My Taste Memory）」をもとに、美味しく失敗しないヘルシーレシピのアイデアを3つ提案してください。
+
+【今家にある食材】
+${ingredients.join('、') || '米粉、卵、豆乳、バナナ'}
+
+【今の気分・食べたいジャンル】
+${mood || '甘いものが食べたい'}
+
+【ユーザーの好み（My Taste Memory）】
+${profile.texturePreference}
+
+【重要な出力ルール】
+1. 3つのレシピは食感や調理法（焼く・混ぜるだけ・レンジなど）のバリエーションを変えて提案してください。
+2. 各レシピについて、家にある食材をどう活かすかと、「あと1つ買い足すなら（または家にあれば加えると最高な食材）」を1つ提案してください。
+3. 必ず以下のJSON配列フォーマットのみを出力してください（余計な挨拶やマークダウン記号は不要です）。
+
+[
+  {
+    "title": "レシピ案のタイトル",
+    "description": "どんな味わい・食感になるかの魅力的な説明（2文程度）",
+    "cookingTime": 20,
+    "usedIngredients": ["使用する手持ち食材1", "使用する手持ち食材2"],
+    "extraIngredientTip": "あと1つ加えるなら：〇〇（理由）"
+  }
+]
+`;
+
+  let lastErrorMessage = '';
+
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        lastErrorMessage = `HTTP ${response.status} (${model})`;
+        if (response.status === 500 || response.status === 404 || response.status === 400) {
+          continue;
+        }
+        throw new Error(lastErrorMessage);
+      }
+
+      const data = await response.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) continue;
+
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) continue;
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: any) => ({
+          title: item.title || 'おすすめアレンジレシピ',
+          description: item.description || '',
+          cookingTime: Number(item.cookingTime) || 20,
+          usedIngredients: Array.isArray(item.usedIngredients) ? item.usedIngredients : [],
+          extraIngredientTip: item.extraIngredientTip || '',
+        }));
+      }
+    } catch (err: any) {
+      lastErrorMessage = err.message || '通信エラー';
+    }
+  }
+
+  throw new Error(`レシピ案の提案に失敗しました。詳細: ${lastErrorMessage}`);
+};
