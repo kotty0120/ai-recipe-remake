@@ -33,9 +33,7 @@ async function callGeminiSecurely(
       }
     }
   } catch (err: any) {
-    if (!LOCAL_FALLBACK_KEY) {
-      throw new Error(err.message || 'サーバーとの通信に失敗しました。');
-    }
+    throw new Error(err.message || 'サーバーとの通信に失敗しました。');
   }
 
   if (!LOCAL_FALLBACK_KEY) {
@@ -235,4 +233,5 @@ ${profile.texturePreference}
     extraIngredientTip: item.extraIngredientTip || '',
   }));
 };
+
 
