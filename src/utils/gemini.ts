@@ -1,8 +1,6 @@
 ﻿import type { Recipe } from '../types/recipe';
 import { getTasteProfile } from './storage';
 
-const LOCAL_FALLBACK_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
 interface TransformParams {
   inputType: 'image' | 'text';
   recipeText: string;
@@ -47,7 +45,7 @@ async function callGeminiSecurely(
       }
     }
   }
-  throw new Error(`通信エラー: ${lastErr}（数秒おいて再度お試しください）`);
+  throw new Error(`${lastErr}`);
 }
 
 export const transformRecipeWithGemini = async (
@@ -211,6 +209,3 @@ ${profile.texturePreference}
     extraIngredientTip: item.extraIngredientTip || '',
   }));
 };
-
-
-
