@@ -2,8 +2,6 @@
   runtime: 'edge',
 };
 
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
-
 export default async function handler(req: Request) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
@@ -37,7 +35,7 @@ export default async function handler(req: Request) {
       {
         text:
           prompt +
-          '\n※重要：高速表示のため、すべての説明文は簡潔に1文（35文字以内）で出力してください。',
+          '\n※超重要：3秒以内に高速生成するため、すべての説明文・理由は簡潔に1文（25文字以内）の短文JSONのみで出力してください。',
       },
     ];
     if (inlineData && inlineData.mime_type && inlineData.data) {
@@ -46,13 +44,14 @@ export default async function handler(req: Request) {
 
     let lastErr = '';
 
-    for (const model of MODELS) {
+    // 唯一の有効モデル gemini-3.8-flash で最大3回（503スパイク吸収リトライ）実行
+    for (let attempt = 0; attempt < 3; attempt++) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 9000);
+      const timer = setTimeout(() => controller.abort(), 12000);
 
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,7 +60,10 @@ export default async function handler(req: Request) {
               contents: [{ parts }],
               generationConfig: {
                 responseMimeType: 'application/json',
-                maxOutputTokens: 1200,
+                maxOutputTokens: 950,
+                thinkingConfig: {
+                  thinkingBudget: 0,
+                },
               },
             }),
           }
@@ -70,8 +72,11 @@ export default async function handler(req: Request) {
 
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
-          lastErr = `${model}: ${errData.error?.message || `HTTP ${response.status}`}`;
-          if ([503, 504, 429, 404, 400].includes(response.status)) continue;
+          lastErr = errData.error?.message || `HTTP ${response.status}`;
+          if ([503, 504, 429, 500].includes(response.status) && attempt < 2) {
+            await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+            continue;
+          }
           return new Response(JSON.stringify({ error: lastErr }), {
             status: response.status,
             headers: { 'Content-Type': 'application/json' },
@@ -81,26 +86,29 @@ export default async function handler(req: Request) {
         const data = await response.json();
         const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!rawText) {
-          lastErr = `${model}: 応答が空でした`;
+          lastErr = 'AIからの応答が空でした';
           continue;
         }
 
         return new Response(
           JSON.stringify({
             text: rawText,
-            modelUsed: model,
+            modelUsed: 'gemini-3.8-flash',
             usageMetadata: data.usageMetadata || null,
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
       } catch (e: any) {
         clearTimeout(timer);
-        lastErr = e.name === 'AbortError' ? `${model}: 9秒タイムアウト` : e.message;
+        lastErr = e.name === 'AbortError' ? '応答が12秒を超えました' : e.message;
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
       }
     }
 
     return new Response(
-      JSON.stringify({ error: `AIサーバーが混雑しています（${lastErr}）` }),
+      JSON.stringify({ error: `AIサーバーが一時混雑しています。もう一度お試しください（${lastErr}）` }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {
