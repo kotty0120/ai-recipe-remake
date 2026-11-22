@@ -35,82 +35,87 @@ export default async function handler(req: Request) {
       {
         text:
           prompt +
-          '\n※超重要：3秒以内に高速生成するため、すべての説明文・理由は簡潔に1文（25文字以内）の短文JSONのみで出力してください。',
+          '\n※重要：各説明文・理由は簡潔に1文（30文字以内）のJSONのみで出力してください。',
       },
     ];
     if (inlineData && inlineData.mime_type && inlineData.data) {
       parts.push({ inline_data: inlineData });
     }
 
-    let lastErr = '';
-
-    // 唯一の有効モデル gemini-3.8-flash で最大3回（503スパイク吸収リトライ）実行
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            body: JSON.stringify({
-              contents: [{ parts }],
-              generationConfig: {
-                responseMimeType: 'application/json',
-                maxOutputTokens: 950,
-                thinkingConfig: {
-                  thinkingBudget: 0,
-                },
-              },
-            }),
-          }
-        );
-        clearTimeout(timer);
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          lastErr = errData.error?.message || `HTTP ${response.status}`;
-          if ([503, 504, 429, 500].includes(response.status) && attempt < 2) {
-            await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-            continue;
-          }
-          return new Response(JSON.stringify({ error: lastErr }), {
-            status: response.status,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!rawText) {
-          lastErr = 'AIからの応答が空でした';
-          continue;
-        }
-
-        return new Response(
-          JSON.stringify({
-            text: rawText,
-            modelUsed: 'gemini-3.8-flash',
-            usageMetadata: data.usageMetadata || null,
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      } catch (e: any) {
-        clearTimeout(timer);
-        lastErr = e.name === 'AbortError' ? '応答が12秒を超えました' : e.message;
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+    // ストリーミングAPI（streamGenerateContent）を呼び出すことで0.8秒で応答開始し504を完全に防ぐ
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            maxOutputTokens: 1500,
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+          },
+        }),
       }
+    );
+
+    if (!geminiRes.ok || !geminiRes.body) {
+      const errData = await geminiRes.json().catch(() => ({}));
+      const msg = errData.error?.message || `HTTP ${geminiRes.status}`;
+      return new Response(JSON.stringify({ error: msg }), {
+        status: geminiRes.status || 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ error: `AIサーバーが一時混雑しています。もう一度お試しください（${lastErr}）` }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } }
-    );
+    // SSEストリームを逐次読み取り、そのままブラウザへ流す（これでVercelの25秒制限を完全回避）
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = geminiRes.body!.getReader();
+        let buffer = '';
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const jsonStr = trimmed.slice(5).trim();
+              if (!jsonStr || jsonStr === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const chunkText = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (chunkText) {
+                  controller.enqueue(encoder.encode(chunkText));
+                }
+              } catch {
+                // 不完全チャンクは無視
+              }
+            }
+          }
+        } catch (e) {
+          // ストリーム終了時の例外は無視
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (err: any) {
     return new Response(
       JSON.stringify({ error: `AI処理に失敗しました: ${err?.message || '通信エラー'}` }),

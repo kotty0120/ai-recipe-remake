@@ -13,39 +13,27 @@ async function callGeminiSecurely(
   prompt: string,
   inlineData?: { mime_type: string; data: string }
 ): Promise<string> {
-  let lastErr = '';
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, inlineData }),
+  });
+
+  const textBody = await res.text();
+  if (!res.ok) {
     try {
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, inlineData }),
-      });
-
-      const textBody = await res.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(textBody);
-      } catch {
-        throw new Error(`サーバー応答エラー (HTTP ${res.status}): ${textBody.slice(0, 120)}`);
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || `サーバーエラー (HTTP ${res.status})`);
-      }
-      if (data.text) {
-        return data.text;
-      }
-      throw new Error('AIからの応答が空でした。');
-    } catch (err: any) {
-      lastErr = err?.message || '通信エラー';
-      if (attempt === 0) {
-        await new Promise((r) => setTimeout(r, 1200));
-        continue;
-      }
+      const errJson = JSON.parse(textBody);
+      throw new Error(errJson.error || `サーバーエラー (HTTP ${res.status})`);
+    } catch (e: any) {
+      if (e.message && !e.message.includes('JSON')) throw e;
+      throw new Error(`サーバーエラー (HTTP ${res.status}): ${textBody.slice(0, 120)}`);
     }
   }
-  throw new Error(`${lastErr}`);
+
+  if (!textBody.trim()) {
+    throw new Error('AIからの応答が空でした。もう一度お試しください。');
+  }
+  return textBody;
 }
 
 export const transformRecipeWithGemini = async (
@@ -209,3 +197,4 @@ ${profile.texturePreference}
     extraIngredientTip: item.extraIngredientTip || '',
   }));
 };
+
